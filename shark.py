@@ -1,73 +1,9 @@
-'''import pygame
-from pygame.locals import *
 
-# Cargamos las bibliotecas de OpenGL
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GLUT import *
-
-import random
-import math
-import numpy as np
-
-class Shark:
-    def __init__(self):
-        self.points = np.array([[-3.0,-1.0, 1.0], [3.0,-1.0, 1.0], [3.0,-1.0,-1.0], [-3.0,-1.0,-1.0],
-                                [-3.0, 1.0, 1.0], [3.0, 1.0, 1.0], [3.0, 1.0,-1.0], [-3.0, 1.0,-1.0]])
-        
-        self.position=[800,0,0]
-        
-        
-    def drawFaces(self):
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[0])
-        glVertex3fv(self.points[1])
-        glVertex3fv(self.points[2])
-        glVertex3fv(self.points[3])
-        glEnd()
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[4])
-        glVertex3fv(self.points[5])
-        glVertex3fv(self.points[6])
-        glVertex3fv(self.points[7])
-        glEnd()
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[0])
-        glVertex3fv(self.points[1])
-        glVertex3fv(self.points[5])
-        glVertex3fv(self.points[4])
-        glEnd()
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[1])
-        glVertex3fv(self.points[2])
-        glVertex3fv(self.points[6])
-        glVertex3fv(self.points[5])
-        glEnd()
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[2])
-        glVertex3fv(self.points[3])
-        glVertex3fv(self.points[7])
-        glVertex3fv(self.points[6])
-        glEnd()
-        glBegin(GL_QUADS)
-        glVertex3fv(self.points[3])
-        glVertex3fv(self.points[0])
-        glVertex3fv(self.points[4])
-        glVertex3fv(self.points[7])
-        glEnd()
-        
-    def draw(self):
-        glPushMatrix()
-        glTranslatef(self.position[0], self.position[1], self.position[2])
-        glScaled(5.0,5.0,5.0)
-        glColor3f(1.0, 1.0, 1.0)
-        self.drawFaces()
-        glPopMatrix()'''
-        
 import os
 import pygame
 from OpenGL.GL import *
 import math
+import random
 
 class Shark:
     generate_on_init = True
@@ -113,9 +49,11 @@ class Shark:
         self.faces = []
         self.gl_list = 0
         dirname = os.path.dirname(filename)
-        self.position=[100,0,0]
+        self.position=[800,0,0]
         self.rotate=90.0
         self.dir=[-1,0,0]
+        self.multiplier=1
+        self.dir_predictor=[0,0,0]
 
         material = None
         for line in open(filename, "r"):
@@ -199,13 +137,39 @@ class Shark:
             newdir[0]=(math.cos(angle)*self.dir[0])+(math.sin(angle)*self.dir[2])
             newdir[2]=(-(math.sin(angle))*self.dir[0])+(math.cos(angle)*self.dir[2])
             self.dir=newdir
-            print(self.dir)
-        self.position[0]=self.position[0]+self.dir[0]/2
-        self.position[2]=self.position[2]+self.dir[2]/2
+        self.position[0]=self.position[0]+self.dir[0]*self.multiplier
+        self.position[2]=self.position[2]+self.dir[2]*self.multiplier
+        
+    def rush(self):
+        self.position[0]=self.position[0]+self.dir[0]*3*self.multiplier
+        self.position[2]=self.position[2]+self.dir[2]*3*self.multiplier
+        
+    def prey(self,player):
+        if math.dist(player,[self.position[0],self.position[2]])>850:
+            return True
+        
+    def pounce(self,player):
+        if math.dist(player,[self.position[0],self.position[2]])<300:
+            return True
+        
+    def getPos(self):
+        value=[self.position[0],self.position[2]]
+        return value
     
-    '''def colition(self,player_x,player_y):
+    def die(self):
+        glPushMatrix() 
+        self.position[1]=self.position[1]-1 
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+        glRotatef(-90.0, 1.0, 0.0, 0.0)
+        glRotatef(self.rotate, 0.0, 0.0, 1.0)
+        glRotatef(90, 0.0, 1.0, 0.0)
+        glScale(10.0,10.0,10.0)
+        glCallList(self.gl_list)
+        glPopMatrix()
+    
+    def colition(self,player_x,player_y):
         if abs(player_x-self.position[0])<20 and abs(player_y-self.position[2])<20:
-            print("colisition")'''
+            return True
         
 
     def render(self):
@@ -222,9 +186,42 @@ class Shark:
         place=[self.position[0]-self.dir[0]*7,self.position[2]-self.dir[2]*7]
         for i in range(8):
             if math.dist(bullet_pos,place)<10:
-                print('hit')
                 return True
             place=[place[0]-self.dir[0]*15,place[1]-self.dir[2]*15]
+            
+    def revive(self, round):
+        angle=math.radians(random.randrange(-180,180))
+        self.position=[1,0,0]
+        new_x=(math.cos(angle)*self.position[0])+(math.sin(angle)*self.position[2])
+        new_y=(-(math.sin(angle))*self.position[0])+(math.cos(angle)*self.position[2])
+        self.position[0]=new_x*855
+        self.position[2]=new_y*855
+        self.multiplier=round/2+1
+    
+    def addToMultiplier(self):
+        self.multiplier=self.multiplier+0.25
+        
+    def newAttackPoint(self):
+        angle=math.radians(random.randrange(-180,180))
+        self.position=[1,0,0]
+        new_x=(math.cos(angle)*self.position[0])+(math.sin(angle)*self.position[2])
+        new_y=(-(math.sin(angle))*self.position[0])+(math.cos(angle)*self.position[2])
+        self.position[0]=new_x*855
+        self.position[2]=new_y*855
+    
+    def moveDown(self):
+        self.position[0]=self.position[0]+self.dir[0]*3*self.multiplier
+        self.position[2]=self.position[2]+self.dir[2]*3*self.multiplier
+        self.position[1]=self.position[1]-4*self.multiplier
+        glPushMatrix()  
+        glTranslatef(self.position[0], self.position[1], self.position[2])
+        glRotatef(-90.0, 1.0, 0.0, 0.0)
+        glRotatef(self.rotate, 0.0, 0.0, 1.0)
+        glRotatef(30, -1.0, 0.0, 0.0)
+        glScale(10.0,10.0,10.0)
+        glCallList(self.gl_list)
+        glPopMatrix()
+        
 
     def free(self):
         glDeleteLists([self.gl_list])

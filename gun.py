@@ -118,7 +118,9 @@ class Gun:
 
     def render(self,degree,dir, player_x, player_z):
         glPushMatrix()
-        glTranslatef(player_x+dir[0]*3-dir[2]*1.2, self.position[1], player_z+dir[2]*3+dir[0]*1.2)
+        self.position[0]=player_x+dir[0]*3-dir[2]*1.2
+        self.position[2]=player_z+dir[2]*3+dir[0]*1.2
+        glTranslatef(self.position[0], self.position[1], self.position[2])
         glRotatef(degree, 0.0, 1.0, 0.0)
         self.rotate=degree
         glScale(0.3,0.3,0.3)
